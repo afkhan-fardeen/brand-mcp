@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { GuidelineUploadForm } from "./guideline-upload-form";
 import { McpUrlBadge } from "./mcp-url-badge";
 
@@ -15,6 +15,11 @@ export default async function BrandWorkspacePage({
 
   const { data: brand } = await supabase.from("brands").select("id, name, slug").eq("id", brandId).maybeSingle();
   if (!brand) notFound();
+
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+  const protocol = requestHeaders.get("x-forwarded-proto") ?? "https";
+  const mcpUrl = `${protocol}://${host}/api/mcp/${brand.slug}`;
 
   const [{ data: guidelines }, { data: campaigns }, { data: layoutRules }, { data: products }] =
     await Promise.all([
@@ -31,12 +36,11 @@ export default async function BrandWorkspacePage({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="title text-3xl">{brand.name}</h1>
-          <McpUrlBadge slug={brand.slug} />
+      <div className="flex items-start justify-between gap-6">
+        <h1 className="title text-3xl">{brand.name}</h1>
+        <div className="w-96">
+          <McpUrlBadge url={mcpUrl} />
         </div>
-        <Button>Upload asset</Button>
       </div>
 
       <section>
