@@ -1,53 +1,47 @@
 # BrandHub
 
 Multi-tenant brand knowledge base and MCP server. Marketing teams manage isolated brand
-workspaces (guidelines, campaigns, layout rules, product cutouts) in the dashboard; AI
-clients (Claude Desktop, Cursor) consume that data through brand-scoped MCP tools and
-route image generation to a compositing API that locks product pixels.
+workspaces (guidelines, campaigns, layout rules, product cutouts) in the dashboard. Each
+brand gets its own dedicated MCP URL (`/api/mcp/<slug>`) that AI clients (Claude, Gemini,
+Cursor) connect to — the URL itself scopes every tool call to that brand, so there's no
+`brand_name` parameter to get wrong. The AI reads the raw guideline text/files and product
+PNGs through the tools and does its own reasoning and image generation from there.
 
 ## Stack
 
 - Next.js 16 (App Router) + TypeScript + Tailwind
-- Supabase (Postgres, pgvector, Auth, Storage)
-- `mcp-handler` for the MCP route (`/api/mcp`)
-- Inngest for async compositing jobs (`/api/inngest`)
-- Photoroom API for product-locked compositing
+- Supabase (Postgres, Auth, Storage)
+- `mcp-handler` for the per-brand MCP route (`/api/mcp/[brand]`)
+- `pdf-parse` / `mammoth` to extract text from uploaded PDF/DOCX guideline files
 
 ## Setup
 
-1. Create a Supabase project, then run the migration:
+1. Create a Supabase project, then run the migrations in order:
    ```bash
-   supabase link --project-ref <your-ref>
-   supabase db push
+   npx supabase db push --project-ref <your-ref> -p '<your-db-password>'
    ```
-   (or paste `supabase/migrations/0001_init.sql` into the SQL editor)
+   (or paste each file in `supabase/migrations/` into the SQL editor, in order)
 
 2. Copy `.env.example` to `.env.local` and fill in:
    - Supabase URL/keys (Project Settings → API)
-   - `OPENAI_API_KEY` — used to embed `brand_guidelines.content` for semantic search
-   - `PHOTOROOM_API_KEY` — the compositing backend
-   - `INNGEST_EVENT_KEY` / `INNGEST_SIGNING_KEY` — from the Inngest dashboard once deployed (optional locally, the Inngest Dev Server auto-discovers `/api/inngest`)
-   - `MCP_SERVER_SECRET` — the bearer token AI clients must send to `/api/mcp`
+   - `MCP_SERVER_SECRET` — the bearer token AI clients must send to `/api/mcp/<slug>`
+     (generate one with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`)
 
 3. Run the dev server:
    ```bash
    npm run dev
    ```
-   and, in a second terminal, the Inngest Dev Server:
-   ```bash
-   npx inngest-cli@latest dev
-   ```
 
-4. Point an MCP client (Claude Desktop, Cursor) at `http://localhost:3000/api/mcp` with an
-   `Authorization: Bearer <MCP_SERVER_SECRET>` header.
+4. Create a brand in the dashboard (`/dashboard`) — this generates its slug. Copy its MCP
+   URL from the brand workspace page and point an MCP client at
+   `https://<your-deployment>/api/mcp/<slug>` with an `Authorization: Bearer
+   <MCP_SERVER_SECRET>` header.
 
 ## Structure
 
 - `src/app/dashboard` — brand-workspace admin UI (guidelines, campaigns, layout rules, products)
-- `src/app/api/mcp` — MCP tool server (`get_brand_guidelines`, `get_layout_rules`,
-  `search_product_assets`, `generate_composited_shot`, `check_generation_status`)
-- `src/app/api/inngest` — background job runner for the compositing pipeline
-- `src/lib/mcp` — brand resolution, embeddings, and tool definitions
+- `src/app/api/mcp/[brand]` — per-brand MCP tool server (`get_brand_guidelines`,
+  `get_layout_rules`, `search_product_assets`)
+- `src/lib/mcp` — brand-slug resolution, text extraction, and tool definitions
 - `src/lib/supabase` — browser/server/service Supabase clients
-- `supabase/migrations` — schema (brands, brand_guidelines, campaigns, layout_rules,
-  products, generation_jobs) and the `match_brand_guidelines` vector-search RPC
+- `supabase/migrations` — schema (brands, brand_guidelines, campaigns, layout_rules, products)

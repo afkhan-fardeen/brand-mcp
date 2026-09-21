@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { GuidelineUploadForm } from "./guideline-upload-form";
+import { McpUrlBadge } from "./mcp-url-badge";
 
 export default async function BrandWorkspacePage({
   params,
@@ -11,12 +13,17 @@ export default async function BrandWorkspacePage({
   const { brand: brandId } = await params;
   const supabase = await createClient();
 
-  const { data: brand } = await supabase.from("brands").select("id, name").eq("id", brandId).maybeSingle();
+  const { data: brand } = await supabase.from("brands").select("id, name, slug").eq("id", brandId).maybeSingle();
   if (!brand) notFound();
 
   const [{ data: guidelines }, { data: campaigns }, { data: layoutRules }, { data: products }] =
     await Promise.all([
-      supabase.from("brand_guidelines").select("id, category, content").eq("brand_id", brandId).limit(20),
+      supabase
+        .from("brand_guidelines")
+        .select("id, title, category, content, source_type, file_url, file_name, file_type")
+        .eq("brand_id", brandId)
+        .order("created_at", { ascending: false })
+        .limit(20),
       supabase.from("campaigns").select("id, name, is_active, design_rules").eq("brand_id", brandId),
       supabase.from("layout_rules").select("id, asset_type, dimensions").eq("brand_id", brandId),
       supabase.from("products").select("id, sku, name, transparent_png_url").eq("brand_id", brandId).limit(20),
@@ -25,18 +32,35 @@ export default async function BrandWorkspacePage({
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between">
-        <h1 className="title text-3xl">{brand.name}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="title text-3xl">{brand.name}</h1>
+          <McpUrlBadge slug={brand.slug} />
+        </div>
         <Button>Upload asset</Button>
       </div>
 
       <section>
         <p className="section-label text-sm">Brand Guidelines</p>
-        <div className="mt-3 flex flex-col gap-2">
+        <div className="mt-3 flex flex-col gap-3">
+          <GuidelineUploadForm brandId={brandId} />
           {guidelines?.length ? (
             guidelines.map((g) => (
               <Card key={g.id} className="py-3">
-                <span className="text-xs font-semibold text-accent">{g.category}</span>
-                <p className="mt-1 text-sm">{g.content}</p>
+                <div className="flex items-center gap-2">
+                  {g.title && <span className="text-sm font-semibold">{g.title}</span>}
+                  <span className="text-xs font-semibold text-accent">{g.category}</span>
+                </div>
+                <p className="mt-1 whitespace-pre-wrap text-sm">{g.content}</p>
+                {g.file_url && (
+                  <a
+                    href={g.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-block text-xs font-semibold text-accent"
+                  >
+                    {g.file_name} ↗
+                  </a>
+                )}
               </Card>
             ))
           ) : (

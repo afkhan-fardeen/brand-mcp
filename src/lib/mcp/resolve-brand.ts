@@ -3,32 +3,29 @@ import { createServiceClient } from "@/lib/supabase/server";
 export class BrandResolutionError extends Error {}
 
 /**
- * Every MCP tool must call this before touching any other table (rules.md #1).
- * Never trust the AI's brand_name — validate it against Postgres and fail loudly,
- * with a natural-language message the AI can relay to the user (rules.md #4).
+ * Resolves the brand for a per-brand MCP URL (/api/mcp/<slug>). The slug comes straight
+ * from the route, not from anything the AI supplies, so this is the one place brand
+ * identity is decided — every tool call after this is scoped to the resulting brandId.
  */
-export async function resolveBrandId(brandName: string): Promise<string> {
+export async function resolveBrandBySlug(slug: string): Promise<{ id: string; name: string }> {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("brands")
     .select("id, name")
-    .ilike("name", brandName.trim())
+    .eq("slug", slug)
     .maybeSingle();
 
   if (error) {
-    throw new BrandResolutionError(
-      `Error: could not look up brand "${brandName}" (${error.message}). Please retry.`,
-    );
+    throw new BrandResolutionError(`Error: could not look up brand "${slug}" (${error.message}).`);
   }
 
   if (!data) {
-    const { data: allBrands } = await supabase.from("brands").select("name");
-    const known = allBrands?.map((b) => b.name).join(", ") ?? "none configured yet";
+    const { data: allBrands } = await supabase.from("brands").select("slug");
+    const known = allBrands?.length ? allBrands.map((b) => b.slug).join(", ") : "none configured yet";
     throw new BrandResolutionError(
-      `Error: brand "${brandName}" was not found. Known brands: ${known}. ` +
-        `Please ask the user which brand this asset belongs to, or use an exact brand name.`,
+      `Error: no brand found for MCP URL "/api/mcp/${slug}". Known brand slugs: ${known}.`,
     );
   }
 
-  return data.id;
+  return data;
 }

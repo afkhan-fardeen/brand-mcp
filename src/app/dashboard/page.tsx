@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { createBrand } from "./actions";
 
 export default function DashboardHome() {
   return (
@@ -12,9 +13,18 @@ export default function DashboardHome() {
       <Card className="mt-8">
         <p className="section-label text-sm">New workspace</p>
         <p className="mt-1 text-sm text-foreground-muted">
-          Isolate a new brand&apos;s assets so the AI never mixes it with another brand.
+          Isolates this brand&apos;s assets and gives it its own dedicated MCP URL, so the
+          AI can never mix it up with another brand.
         </p>
-        <Button className="mt-4">Create brand workspace</Button>
+        <form action={createBrand} className="mt-4 flex gap-2">
+          <input
+            name="name"
+            required
+            placeholder="Brand name, e.g. Seissense"
+            className="flex-1 rounded-xl border border-hairline bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+          />
+          <Button type="submit">Create</Button>
+        </form>
       </Card>
     </div>
   );
