@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { GuidelineUploadForm } from "./guideline-upload-form";
 import { McpUrlBadge } from "./mcp-url-badge";
+import { ConnectGuide } from "./connect-guide";
 
 export default async function BrandWorkspacePage({
   params,
@@ -42,6 +43,8 @@ export default async function BrandWorkspacePage({
           <McpUrlBadge url={mcpUrl} />
         </div>
       </div>
+
+      <ConnectGuide mcpUrl={mcpUrl} slug={brand.slug} />
 
       <section>
         <p className="section-label text-sm">Brand Guidelines</p>
