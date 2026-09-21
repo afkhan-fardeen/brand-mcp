@@ -1,6 +1,10 @@
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { registerTools } from "@/lib/mcp/tools";
 
+export const runtime = "nodejs";
+// SSE tool calls (semantic search, compositing job kickoff) shouldn't hit the default 10s cap.
+export const maxDuration = 60;
+
 const handler = createMcpHandler(
   (server) => {
     registerTools(server);
